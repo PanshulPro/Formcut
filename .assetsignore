@@ -10,3 +10,9 @@
 .gitattributes
 .assetsignore
 wrangler.jsonc
+
+# Worker source. It is bundled into the Worker at build time and does not need
+# to be reachable over HTTP as well. Serving it published the honeypot field
+# name, the time-to-fill threshold and the exact rate-limit values, which is
+# everything a bot author needs to walk straight past all three.
+worker/**

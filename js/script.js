@@ -828,6 +828,11 @@
         message: message.value.trim(),
         website: document.getElementById("fWebsite")?.value || "",
         elapsed: Date.now() - formOpenedAt,
+        /* Present only once a Turnstile widget is on the page. The
+           Worker treats a missing token as "not configured" until the
+           secret is set, so this stays harmless until then. */
+        turnstileToken:
+          form.querySelector('[name="cf-turnstile-response"]')?.value || null,
       }),
     })
       .then(async (res) => {

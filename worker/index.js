@@ -14,7 +14,18 @@
 
 const MAX_BODY_BYTES = 16 * 1024; // an enquiry is ~1KB; this is generous
 const RATE_LIMIT = { max: 5, windowSeconds: 3600 };
+
+/* A second limit keyed on the submitted email address. Per-IP alone lets
+   someone cycle addresses through a proxy pool and use this form to mail
+   strangers a confirmation they never asked for - the form becomes a spam
+   cannon pointed at third parties. */
+const EMAIL_LIMIT = { max: 3, windowSeconds: 86400 };
+
 const MIN_QTY = 100; // wholesale only
+
+/* Retention. The privacy policy commits to deleting enquiries after 24
+   months, so something has to actually do it - see the scheduled handler. */
+const RETENTION_DAYS = 730;
 
 /* Field length caps. Anything longer is a mistake or an attack, never a real
    enquiry, and unbounded strings are how a database bill becomes a surprise. */
@@ -58,15 +69,48 @@ const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z][Z][0-9A-Z]$/;
 
 /* ── rate limiting ───────────────────────────────────────────────────────── */
 
-async function rateLimited(env, ip) {
-  if (!env.RATELIMIT) return false; // fail open: a KV outage must not block sales
-  const key = `rl:${ip}`;
-  const current = parseInt((await env.RATELIMIT.get(key)) || "0", 10);
-  if (current >= RATE_LIMIT.max) return true;
-  await env.RATELIMIT.put(key, String(current + 1), {
-    expirationTtl: RATE_LIMIT.windowSeconds,
-  });
-  return false;
+/* Fails open on a KV outage. A rate limiter that blocks every enquiry when
+   its own storage is unavailable costs more than the abuse it prevents. */
+async function bump(env, key, max, ttl) {
+  if (!env.RATELIMIT) return false;
+  try {
+    const current = parseInt((await env.RATELIMIT.get(key)) || "0", 10);
+    if (current >= max) return true;
+    await env.RATELIMIT.put(key, String(current + 1), { expirationTtl: ttl });
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+const rateLimited = (env, ip) =>
+  bump(env, `rl:${ip}`, RATE_LIMIT.max, RATE_LIMIT.windowSeconds);
+
+/* Hashed, not stored raw: the limiter should not become a second copy of
+   every email address that ever touched the form. */
+async function emailLimited(env, email) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email));
+  const hash = [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return bump(env, `el:${hash.slice(0, 32)}`, EMAIL_LIMIT.max, EMAIL_LIMIT.windowSeconds);
+}
+
+/* Cloudflare Turnstile. Dormant until TURNSTILE_SECRET is set, so the site
+   keeps working before the keys exist; once set it becomes the real bot gate
+   and the honeypot drops to a backstop. */
+async function turnstileOk(env, token, ip) {
+  if (!env.TURNSTILE_SECRET) return true;
+  if (!token) return false;
+  try {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ secret: env.TURNSTILE_SECRET, response: token, remoteip: ip }),
+    });
+    const out = await res.json();
+    return out.success === true;
+  } catch {
+    return false; // fail closed: this one exists precisely to stop bots
+  }
 }
 
 /* ── validation ──────────────────────────────────────────────────────────── */
@@ -178,6 +222,23 @@ function customerEmailHtml(d) {
 /* ── handler ─────────────────────────────────────────────────────────────── */
 
 export default {
+  /* Retention sweep. The privacy policy commits to deleting enquiries after
+     24 months; this is the thing that honours it. Runs daily, deletes in one
+     statement, and logs the count so the job is auditable. */
+  async scheduled(event, env, ctx) {
+    if (!env.DB) return;
+    const cutoff = new Date(Date.now() - RETENTION_DAYS * 86400 * 1000).toISOString();
+    try {
+      const res = await env.DB
+        .prepare("DELETE FROM enquiries WHERE created_at < ?")
+        .bind(cutoff)
+        .run();
+      console.log(`retention sweep: removed ${res.meta?.changes ?? 0} enquiries older than ${cutoff}`);
+    } catch (err) {
+      console.error("retention sweep failed", err);
+    }
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname !== "/api/enquiry") return env.ASSETS.fetch(request);
@@ -211,8 +272,16 @@ export default {
       (Number.isFinite(+raw.elapsed) && +raw.elapsed < 2000);
     if (trapped) return json(200, { ok: true, id: crypto.randomUUID() });
 
+    if (!(await turnstileOk(env, raw.turnstileToken, ip)))
+      return json(403, { ok: false, error: "Could not verify that you are human. Please reload and try again." });
+
     const { data, errors } = validate(raw);
     if (Object.keys(errors).length) return json(422, { ok: false, errors });
+
+    /* Checked after validation so a malformed address cannot burn a slot,
+       and after the honeypot so bots never learn the limit exists. */
+    if (await emailLimited(env, data.email))
+      return json(429, { ok: false, error: "This email address has already sent several enquiries. Please email us directly." });
 
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();

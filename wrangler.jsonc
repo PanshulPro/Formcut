@@ -31,7 +31,13 @@
       "binding": "RATELIMIT",
       "id": "f52c5fc18d624cd9939b8b8940708a72"
     }
-  ]
+  ],
+
+  // Daily retention sweep at 03:00 UTC. The privacy policy promises deletion
+  // after 24 months; without this trigger that promise is not kept.
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  }
 
   // Secrets are NOT here. Set them with:
   //   npx wrangler secret put RESEND_API_KEY
