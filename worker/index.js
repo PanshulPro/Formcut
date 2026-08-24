@@ -383,10 +383,32 @@ export default {
         ]);
 
         const okAt = (i) => results[i]?.status === "fulfilled" && results[i].value?.ok;
+
+        /* Record WHY a notification failed, not just that it did. Without
+           this the only diagnosis is `wrangler tail`, which means an
+           operator has to be watching at the moment it breaks. Truncated
+           and stored on the row so it is visible next to the enquiry. */
+        const why = (label, i) => {
+          const r = results[i];
+          if (!r) return null;
+          if (r.status === "rejected") return `${label}: ${String(r.reason).slice(0, 120)}`;
+          const v = r.value;
+          if (!v || v.ok) return null;
+          if (v.skipped) return `${label}: ${v.skipped}`;
+          return `${label}: HTTP ${v.status} ${String(v.body || "").slice(0, 200)}`;
+        };
+        const errors = [why("owner", 0), why("customer", 1), why("telegram", 2)]
+          .filter(Boolean)
+          .join(" | ")
+          .slice(0, 500);
+
         if (env.DB) {
           await env.DB.prepare(
-            `UPDATE enquiries SET owner_notified = ?, customer_notified = ? WHERE id = ?`
-          ).bind(okAt(0) ? 1 : 0, okAt(1) ? 1 : 0, id).run().catch(() => {});
+            `UPDATE enquiries SET owner_notified = ?, customer_notified = ?, notify_error = ? WHERE id = ?`
+          )
+            .bind(okAt(0) ? 1 : 0, okAt(1) ? 1 : 0, errors || null, id)
+            .run()
+            .catch(() => {});
         }
       })()
     );
