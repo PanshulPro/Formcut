@@ -47,6 +47,41 @@ const json = (status, obj) =>
 
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
+/* Read the body with a hard byte ceiling, aborting the stream the moment it
+   is exceeded. Returns null if over the cap. Never buffers more than `max`. */
+async function readCapped(request, max) {
+  const reader = request.body?.getReader();
+  if (!reader) return "";
+  const chunks = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > max) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  }
+  const buf = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    buf.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(buf);
+}
+
+/* Every outbound call gets a deadline. Without one, a hung upstream holds the
+   waitUntil open until the platform kills it, and a slow Turnstile response
+   would stall the request the visitor is waiting on. */
+const withTimeout = (ms) => AbortSignal.timeout(ms);
+
 /* Strip CR/LF before any value reaches a mail header or the Telegram API.
    This is the classic contact-form-to-spam-relay vector: a newline inside a
    "name" lets an attacker inject their own Bcc: header. */
@@ -105,6 +140,7 @@ async function turnstileOk(env, token, ip) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ secret: env.TURNSTILE_SECRET, response: token, remoteip: ip }),
+      signal: withTimeout(5000), // visitor is blocked on this one
     });
     const out = await res.json();
     return out.success === true;
@@ -159,6 +195,7 @@ async function sendEmail(env, { to, subject, html, replyTo }) {
       html,
       ...(replyTo ? { reply_to: [replyTo] } : {}),
     }),
+    signal: withTimeout(10000),
   });
   return { ok: res.ok, status: res.status, body: res.ok ? null : await res.text() };
 }
@@ -176,6 +213,7 @@ async function sendTelegram(env, text) {
         parse_mode: "HTML",
         disable_web_page_preview: true,
       }),
+      signal: withTimeout(8000),
     }
   );
   return { ok: res.ok };
@@ -255,15 +293,20 @@ export default {
     if (await rateLimited(env, ip))
       return json(429, { ok: false, error: "Too many enquiries from this connection. Try again later." });
 
-    const len = +(request.headers.get("content-length") || 0);
-    if (len > MAX_BODY_BYTES) return json(413, { ok: false, error: "Payload too large." });
+    /* Measured from the stream, not from Content-Length. That header is
+       optional and attacker-supplied: omit it and a naive check reads 0,
+       passes, and then buffers an unbounded body into memory. */
+    const bodyText = await readCapped(request, MAX_BODY_BYTES);
+    if (bodyText === null) return json(413, { ok: false, error: "Payload too large." });
 
     let raw;
     try {
-      raw = await request.json();
+      raw = JSON.parse(bodyText);
     } catch {
       return json(400, { ok: false, error: "Malformed request." });
     }
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw))
+      return json(400, { ok: false, error: "Malformed request." });
 
     /* Honeypot + time-to-fill. Both are silent: a bot that knows it failed
        adapts, so this returns the same success shape a real submission gets. */

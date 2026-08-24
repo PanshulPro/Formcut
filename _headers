@@ -13,6 +13,10 @@
   Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), interest-cohort=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Frame-Options: DENY
+  # Isolates the browsing context and stops other origins embedding our
+  # assets as subresources. Cheap, and closes two side-channel classes.
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
 
 # HTML must revalidate, otherwise a deploy does not reach people who already
 # have the page cached. The referenced assets are versioned, so this is cheap.
