@@ -1,0 +1,284 @@
+/* ==========================================================================
+   FORMCUT enquiry endpoint
+   ---------------------------------------------------------------------------
+   POST /api/enquiry
+
+   Everything here assumes the client is hostile. Browser-side validation is a
+   convenience for honest users; this file is the actual gate.
+
+   Flow: origin check -> rate limit -> parse -> validate -> store -> notify.
+   Storage happens BEFORE notification on purpose: an enquiry that is saved but
+   not emailed can be recovered from the database, whereas one that is emailed
+   but not saved is gone the moment the inbox is cleared.
+   ========================================================================== */
+
+const MAX_BODY_BYTES = 16 * 1024; // an enquiry is ~1KB; this is generous
+const RATE_LIMIT = { max: 5, windowSeconds: 3600 };
+const MIN_QTY = 100; // wholesale only
+
+/* Field length caps. Anything longer is a mistake or an attack, never a real
+   enquiry, and unbounded strings are how a database bill becomes a surprise. */
+const LIMITS = {
+  name: 100, company: 120, buyerType: 60, gstin: 15,
+  email: 254, phone: 24, product: 120, branding: 60, message: 4000,
+};
+
+const json = (status, obj) =>
+  new Response(JSON.stringify(obj), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+
+/* ── helpers ─────────────────────────────────────────────────────────────── */
+
+const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+/* Strip CR/LF before any value reaches a mail header or the Telegram API.
+   This is the classic contact-form-to-spam-relay vector: a newline inside a
+   "name" lets an attacker inject their own Bcc: header. */
+/* U+2028 and U+2029 are written as escapes, not literal characters:
+   JavaScript treats both as line terminators, so a raw one inside a
+   regex literal ends the line and breaks the file. */
+const noCRLF = (s) =>
+  s.replace(/[\r\n\v\f\u0085\u2028\u2029]+/g, " ");
+
+/* Escape for the HTML email body. Enquiry text is attacker-controlled and the
+   owner opens it in a mail client that renders HTML. */
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PHONE_RE = /^[+]?[0-9\s-]{7,24}$/;
+const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z][Z][0-9A-Z]$/;
+
+/* ── rate limiting ───────────────────────────────────────────────────────── */
+
+async function rateLimited(env, ip) {
+  if (!env.RATELIMIT) return false; // fail open: a KV outage must not block sales
+  const key = `rl:${ip}`;
+  const current = parseInt((await env.RATELIMIT.get(key)) || "0", 10);
+  if (current >= RATE_LIMIT.max) return true;
+  await env.RATELIMIT.put(key, String(current + 1), {
+    expirationTtl: RATE_LIMIT.windowSeconds,
+  });
+  return false;
+}
+
+/* ── validation ──────────────────────────────────────────────────────────── */
+
+function validate(raw) {
+  const d = {
+    name: noCRLF(str(raw.name, LIMITS.name)),
+    company: noCRLF(str(raw.company, LIMITS.company)),
+    buyerType: noCRLF(str(raw.buyerType, LIMITS.buyerType)),
+    gstin: noCRLF(str(raw.gstin, LIMITS.gstin)).toUpperCase(),
+    email: noCRLF(str(raw.email, LIMITS.email)).toLowerCase(),
+    phone: noCRLF(str(raw.phone, LIMITS.phone)),
+    product: noCRLF(str(raw.product, LIMITS.product)),
+    branding: noCRLF(str(raw.branding, LIMITS.branding)),
+    message: str(raw.message, LIMITS.message), // newlines are legitimate here
+    quantity: Number.isFinite(+raw.quantity) ? Math.floor(+raw.quantity) : null,
+  };
+
+  const errors = {};
+  if (d.name.length < 2) errors.name = "Enter your name.";
+  if (d.company.length < 2) errors.company = "We supply businesses only, so we need a company name.";
+  if (!EMAIL_RE.test(d.email)) errors.email = "Enter a valid email address.";
+  if (!PHONE_RE.test(d.phone)) errors.phone = "Enter a valid phone number.";
+  if (d.quantity !== null && d.quantity < MIN_QTY)
+    errors.quantity = `Minimum order is ${MIN_QTY} pieces per style.`;
+  // GSTIN is optional, but if supplied it must be well-formed or it is useless
+  if (d.gstin && !GSTIN_RE.test(d.gstin)) errors.gstin = "That does not look like a valid GSTIN.";
+
+  return { data: d, errors };
+}
+
+/* ── notifications ───────────────────────────────────────────────────────── */
+
+async function sendEmail(env, { to, subject, html, replyTo }) {
+  if (!env.RESEND_API_KEY) return { ok: false, skipped: "no RESEND_API_KEY" };
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.FROM_EMAIL || "FORMCUT <onboarding@resend.dev>",
+      to: [to],
+      subject: noCRLF(subject),
+      html,
+      ...(replyTo ? { reply_to: [replyTo] } : {}),
+    }),
+  });
+  return { ok: res.ok, status: res.status, body: res.ok ? null : await res.text() };
+}
+
+async function sendTelegram(env, text) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return { ok: false, skipped: true };
+  const res = await fetch(
+    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chat_id: env.TELEGRAM_CHAT_ID,
+        text,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+    }
+  );
+  return { ok: res.ok };
+}
+
+const row = (k, v) =>
+  v ? `<tr><td style="padding:6px 16px 6px 0;color:#6b7075;white-space:nowrap">${esc(k)}</td>
+        <td style="padding:6px 0;color:#17191c"><strong>${esc(v)}</strong></td></tr>` : "";
+
+function ownerEmailHtml(d) {
+  return `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:620px">
+  <p style="font:600 12px/1 ui-monospace,monospace;letter-spacing:.16em;color:#b8492a;text-transform:uppercase">New trade enquiry</p>
+  <h2 style="margin:8px 0 20px;font-size:22px;color:#17191c">${esc(d.company)}</h2>
+  <table style="border-collapse:collapse;font-size:14px">
+    ${row("Contact", d.name)}${row("Buyer type", d.buyerType)}${row("GSTIN", d.gstin)}
+    ${row("Email", d.email)}${row("Phone", d.phone)}
+    ${row("Product", d.product)}${row("Quantity", d.quantity ? d.quantity + " pcs" : "")}
+    ${row("Branding", d.branding)}
+  </table>
+  ${d.message ? `<p style="margin:20px 0 6px;color:#6b7075;font-size:13px">Details</p>
+    <div style="white-space:pre-wrap;padding:14px;background:#f7f7f6;border-radius:6px;font-size:14px;color:#17191c">${esc(d.message)}</div>` : ""}
+  <p style="margin-top:22px;font-size:13px;color:#6b7075">Reply directly to this email to reach ${esc(d.name)}.</p>
+</div>`;
+}
+
+function customerEmailHtml(d) {
+  return `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:620px">
+  <h2 style="margin:0 0 14px;font-size:22px;color:#17191c">Thanks — we have your enquiry.</h2>
+  <p style="font-size:15px;line-height:1.6;color:#3f4347">
+    Hi ${esc(d.name)}, we have received your request${d.product ? ` for <strong>${esc(d.product)}</strong>` : ""}
+    and will come back within one business day with trade pricing, fabric options and a realistic lead time.
+  </p>
+  <table style="border-collapse:collapse;font-size:14px;margin:18px 0">
+    ${row("Company", d.company)}${row("Quantity", d.quantity ? d.quantity + " pcs" : "")}${row("Branding", d.branding)}
+  </table>
+  <p style="font-size:13px;color:#6b7075;line-height:1.6">
+    Nothing is confirmed yet — this only acknowledges that your enquiry reached us.
+    If anything above is wrong, just reply to this email.
+  </p>
+  <p style="margin-top:24px;font:600 12px/1 ui-monospace,monospace;letter-spacing:.16em;color:#b8492a">FORMCUT</p>
+</div>`;
+}
+
+/* ── handler ─────────────────────────────────────────────────────────────── */
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (url.pathname !== "/api/enquiry") return env.ASSETS.fetch(request);
+    if (request.method !== "POST")
+      return json(405, { ok: false, error: "Method not allowed." });
+
+    // Same-origin only. Not a security boundary on its own (a non-browser
+    // client sets any Origin it likes) but it stops other sites posting here.
+    const origin = request.headers.get("origin");
+    if (origin && new URL(origin).host !== url.host)
+      return json(403, { ok: false, error: "Cross-origin requests are not accepted." });
+
+    const ip = request.headers.get("cf-connecting-ip") || "unknown";
+    if (await rateLimited(env, ip))
+      return json(429, { ok: false, error: "Too many enquiries from this connection. Try again later." });
+
+    const len = +(request.headers.get("content-length") || 0);
+    if (len > MAX_BODY_BYTES) return json(413, { ok: false, error: "Payload too large." });
+
+    let raw;
+    try {
+      raw = await request.json();
+    } catch {
+      return json(400, { ok: false, error: "Malformed request." });
+    }
+
+    /* Honeypot + time-to-fill. Both are silent: a bot that knows it failed
+       adapts, so this returns the same success shape a real submission gets. */
+    const trapped =
+      str(raw.website, 200).length > 0 ||
+      (Number.isFinite(+raw.elapsed) && +raw.elapsed < 2000);
+    if (trapped) return json(200, { ok: true, id: crypto.randomUUID() });
+
+    const { data, errors } = validate(raw);
+    if (Object.keys(errors).length) return json(422, { ok: false, errors });
+
+    const id = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    const country = request.cf?.country || null;
+
+    // Store first - see the note at the top of this file.
+    if (env.DB) {
+      try {
+        await env.DB.prepare(
+          `INSERT INTO enquiries
+             (id, created_at, name, company, buyer_type, gstin, email, phone,
+              product, quantity, branding, message, country)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        )
+          .bind(
+            id, createdAt, data.name, data.company, data.buyerType || null,
+            data.gstin || null, data.email, data.phone, data.product || null,
+            data.quantity, data.branding || null, data.message || null, country
+          )
+          .run();
+      } catch (err) {
+        console.error("d1 insert failed", err);
+        return json(500, { ok: false, error: "Could not save your enquiry. Please email us instead." });
+      }
+    }
+
+    /* Notifications run after the response is committed. The visitor should
+       not wait on a third-party API, and a Resend outage must not read as a
+       failed submission when the enquiry is already safely stored. */
+    ctx.waitUntil(
+      (async () => {
+        const owner = env.OWNER_EMAIL;
+        const results = await Promise.allSettled([
+          owner &&
+            sendEmail(env, {
+              to: owner,
+              replyTo: data.email,
+              subject: `Trade enquiry — ${data.company}${data.product ? " — " + data.product : ""}`,
+              html: ownerEmailHtml(data),
+            }),
+          sendEmail(env, {
+            to: data.email,
+            subject: "We have your enquiry — FORMCUT",
+            html: customerEmailHtml(data),
+          }),
+          sendTelegram(
+            env,
+            `<b>New trade enquiry</b>\n` +
+              `${esc(data.company)}\n` +
+              `${esc(data.name)} · ${esc(data.phone)}\n` +
+              `${esc(data.email)}\n` +
+              (data.product ? `${esc(data.product)}\n` : "") +
+              (data.quantity ? `${data.quantity} pcs\n` : "") +
+              (data.buyerType ? `${esc(data.buyerType)}` : "")
+          ),
+        ]);
+
+        const okAt = (i) => results[i]?.status === "fulfilled" && results[i].value?.ok;
+        if (env.DB) {
+          await env.DB.prepare(
+            `UPDATE enquiries SET owner_notified = ?, customer_notified = ? WHERE id = ?`
+          ).bind(okAt(0) ? 1 : 0, okAt(1) ? 1 : 0, id).run().catch(() => {});
+        }
+      })()
+    );
+
+    return json(200, { ok: true, id });
+  },
+};

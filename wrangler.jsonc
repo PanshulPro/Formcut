@@ -1,0 +1,41 @@
+{
+  // Committed deliberately. Without this file the build auto-generates one on
+  // every deploy, which is how the whole repo root (including .git) ended up
+  // being served as static assets on the first deploy.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "formcut",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-20",
+  "observability": { "enabled": true },
+
+  "assets": {
+    "directory": ".",
+    // Static assets are served first; anything not matching a file falls
+    // through to the Worker, which only answers /api/*.
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "formcut-enquiries",
+      "database_id": "PLACEHOLDER_SET_BY_WRANGLER"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      // Rate-limit counters. KV rather than D1 so a flood of blocked requests
+      // never touches the enquiry table.
+      "binding": "RATELIMIT",
+      "id": "PLACEHOLDER_SET_BY_WRANGLER"
+    }
+  ]
+
+  // Secrets are NOT here. Set them with:
+  //   npx wrangler secret put RESEND_API_KEY
+  //   npx wrangler secret put OWNER_EMAIL
+  //   npx wrangler secret put TELEGRAM_BOT_TOKEN
+  //   npx wrangler secret put TELEGRAM_CHAT_ID
+}

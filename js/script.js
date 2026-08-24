@@ -728,6 +728,10 @@
     })
   );
 
+  /* Used for the bot time-to-fill check. A form completed in under two
+     seconds was not filled in by a person. */
+  const formOpenedAt = Date.now();
+
   const form = document.getElementById("quoteForm");
   const formSuccess = document.getElementById("formSuccess");
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -791,10 +795,68 @@
       .filter(Boolean)
       .join("\n");
 
-    window.location.href = `mailto:hello@formcut.studio?subject=${encodeURIComponent(
-      subject
-    )}&body=${encodeURIComponent(body)}`;
-    formSuccess?.classList.add("is-visible");
+    /* Post to the Worker. mailto is kept as the fallback path: if the API is
+       unreachable, or the secrets are not set yet, the enquiry still reaches
+       a human instead of silently evaporating. */
+    const submitBtn = form.querySelector('[type="submit"]');
+    const restore = submitBtn ? submitBtn.textContent : null;
+    const mailtoFallback = () => {
+      window.location.href = `mailto:hello@formcut.studio?subject=${encodeURIComponent(
+        subject
+      )}&body=${encodeURIComponent(body)}`;
+      formSuccess?.classList.add("is-visible");
+    };
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending...";
+    }
+
+    fetch("/api/enquiry", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: name.value.trim(),
+        company: val(company),
+        buyerType: val(buyerType),
+        gstin: val(gstin),
+        email: email.value.trim(),
+        phone: `${code.value} ${phone.value.trim()}`,
+        product: product.value || null,
+        quantity: val(qty),
+        branding: val(branding),
+        message: message.value.trim(),
+        website: document.getElementById("fWebsite")?.value || "",
+        elapsed: Date.now() - formOpenedAt,
+      }),
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          form.reset();
+          formSuccess?.classList.add("is-visible");
+          formSuccess?.scrollIntoView({ block: "center", behavior: REDUCED ? "auto" : "smooth" });
+          return;
+        }
+        // 422 means the server rejected specific fields - surface them rather
+        // than dumping the visitor into a mail client with bad data.
+        if (res.status === 422) {
+          const { errors: serverErrors = {} } = await res.json().catch(() => ({}));
+          Object.keys(serverErrors).forEach((k) => {
+            const el = document.getElementById("f" + k[0].toUpperCase() + k.slice(1));
+            if (el) setError(el, true);
+          });
+          form.querySelector(".has-error input, .has-error select")?.focus();
+          return;
+        }
+        mailtoFallback();
+      })
+      .catch(mailtoFallback)
+      .finally(() => {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = restore;
+        }
+      });
   });
 
   ["fName", "fEmail", "fPhone", "fCompany"].forEach((id) => {

@@ -1875,6 +1875,43 @@ section { padding-block: var(--section-y); }
   .quote-grid { grid-template-columns: 1fr; }
 }
 
+/* Legal pages - long-form reading, so the measure is capped and the rhythm
+   is looser than the marketing sections. */
+.legal-body {
+  max-width: 68ch;
+  font-size: 15.5px;
+  line-height: 1.72;
+  color: var(--ink-2, var(--ink));
+}
+.legal-body h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(20px, 2.1vw, 26px);
+  letter-spacing: var(--track-heading);
+  color: var(--ink);
+  margin: 42px 0 12px;
+}
+.legal-body p { margin: 0 0 16px; }
+.legal-body ul { margin: 0 0 18px; padding-left: 20px; }
+.legal-body li { margin-bottom: 7px; }
+.legal-note {
+  padding: 16px 18px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface, rgba(127,127,127,0.07));
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 34px !important;
+}
+
+/* Honeypot. Positioned off-canvas rather than display:none - some bots skip
+   anything that computes to display:none, but almost none check position. */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* Field hint. Always visible, unlike .error-msg which only shows on failure -
    so it must not use the error colour or it reads as a problem. */
 .form-hint {
