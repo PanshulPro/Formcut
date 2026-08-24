@@ -20,7 +20,7 @@
     {
       "binding": "DB",
       "database_name": "formcut-enquiries",
-      "database_id": "PLACEHOLDER_SET_BY_WRANGLER"
+      "database_id": "15875185-e8e6-4d55-beb5-70ed8fe037b5"
     }
   ],
 
@@ -29,7 +29,7 @@
       // Rate-limit counters. KV rather than D1 so a flood of blocked requests
       // never touches the enquiry table.
       "binding": "RATELIMIT",
-      "id": "PLACEHOLDER_SET_BY_WRANGLER"
+      "id": "f52c5fc18d624cd9939b8b8940708a72"
     }
   ]
 
