@@ -1,0 +1,33 @@
+# Cloudflare Pages reads this file at deploy time. Rules are matched top-down;
+# a more specific path block overrides the wildcard for the headers it names.
+
+/*
+  # No inline <script> anywhere in this project, so script-src can stay strict.
+  # 'unsafe-inline' IS needed for style-src: 44 inline style="--stagger:N"
+  # attributes drive the reveal stagger, and CSP treats those as inline styles.
+  # cdn.jsdelivr.net serves ogl (WebGL lib) as an ESM import in hero-mesh.js.
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; frame-src https://www.openstreetmap.org; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), interest-cohort=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Frame-Options: DENY
+
+# HTML must revalidate, otherwise a deploy does not reach people who already
+# have the page cached. The referenced assets are versioned, so this is cheap.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# CSS and JS are requested with ?v=NN cache-busting query strings, so a given
+# URL's bytes never change. Safe to cache hard and forever.
+/css/*
+  Cache-Control: public, max-age=31536000, immutable
+/js/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Hero frame sequence and the social image: content-addressed by filename,
+# replaced rather than edited in place.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -1,0 +1,11 @@
+# Normalise line endings in the repo so diffs stay clean regardless of the
+# machine a clone happens on. Without this, checking out on Windows and
+# deploying from Linux CI shows every line as changed.
+* text=auto eol=lf
+
+# Binary - never touch these.
+*.jpg binary
+*.png binary
+*.webp binary
+*.woff binary
+*.woff2 binary

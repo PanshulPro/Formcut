@@ -1,0 +1,21 @@
+# OS / OneDrive cruft
+desktop.ini
+Thumbs.db
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Secrets - never commit these. Cloudflare secrets belong in
+# `wrangler secret put`, not in the repo.
+.env
+.env.*
+.dev.vars
+
+# Tooling output (relevant once the Worker backend lands)
+node_modules/
+.wrangler/
+dist/
+*.log

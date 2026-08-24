@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+
+  <symbol id="icon-tshirt" viewBox="0 0 100 100">
+    <path d="M35,15 Q50,22 65,15 L85,25 L95,40 L80,35 L78,85 L22,85 L20,35 L5,40 L15,25 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="icon-tshirt-sport" viewBox="0 0 100 100">
+    <path d="M35,15 Q50,22 65,15 L85,25 L95,40 L80,35 L78,85 L22,85 L20,35 L5,40 L15,25 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M28,42 L42,80 M58,42 L72,80" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+  </symbol>
+
+  <symbol id="icon-sweatshirt-round" viewBox="0 0 100 100">
+    <path d="M35,15 Q50,21 65,15 L85,26 L95,42 L80,36 L78,92 L22,92 L20,36 L5,42 L15,26 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M25,87 L75,87 M9,39 L18,36 M91,39 L82,36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+  </symbol>
+
+  <symbol id="icon-sweatshirt-full" viewBox="0 0 100 100">
+    <path d="M35,15 L30,9 L70,9 L65,15 L88,21 L92,80 L80,77 L78,91 L22,91 L20,77 L8,80 L12,21 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M47,15 L47,29 M53,15 L53,29 M13,78 L20,76 M87,78 L80,76" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+  </symbol>
+
+  <symbol id="icon-hoodie" viewBox="0 0 100 100">
+    <path d="M25,21 Q50,2 75,21 L89,23 L93,82 L80,79 L78,93 L22,93 L20,79 L7,82 L11,23 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M25,63 Q50,56 75,63" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+    <path d="M46,23 L44,34 M54,23 L56,34" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+  </symbol>
+
+  <symbol id="icon-jacket" viewBox="0 0 100 100">
+    <path d="M32,18 L38,7 L62,7 L68,18 L90,24 L94,85 L80,82 L78,95 L22,95 L20,82 L6,85 L10,24 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M38,7 L45,21 M62,7 L55,21" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+    <path d="M50,19 L50,92" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" opacity="0.55"/>
+    <circle cx="50" cy="30" r="1.8" fill="currentColor" opacity="0.55"/>
+  </symbol>
+
+  <symbol id="icon-trackpant" viewBox="0 0 100 100">
+    <path d="M27,10 L73,10 L75,23 L25,23 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M25,23 L48,23 L45,90 L31,90 L29,52 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M52,23 L75,23 L71,52 L69,90 L55,90 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M29,28 L27,86 M71,28 L73,86" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" opacity="0.55"/>
+  </symbol>
+
+  <symbol id="icon-shorts" viewBox="0 0 100 100">
+    <path d="M27,10 L73,10 L75,23 L25,23 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M25,23 L48,23 L45,58 L30,58 L28,40 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M52,23 L75,23 L72,40 L70,58 L55,58 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M29,27 L27,54 M71,27 L73,54" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" opacity="0.55"/>
+  </symbol>
+
+</svg>
