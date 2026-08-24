@@ -19,7 +19,8 @@
    needed.
    ========================================================================== */
 
-import { Renderer, Geometry, Program, Mesh, Texture } from "https://cdn.jsdelivr.net/npm/ogl@1.0.11/+esm";
+// Versioned for the same reason as above - see js/hero-mesh.js.
+import { Renderer, Geometry, Program, Mesh, Texture } from "./vendor/ogl.min.js?v=1";
 
 const DIST = 4.6;
 /* Default framing from the original component. `fit` is overridable so the

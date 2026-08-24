@@ -178,10 +178,24 @@
      ~536KB frame sequence down on pages that actually render it. */
   const HAS_HERO = !!document.getElementById("heroCanvas");
 
+  /* WebP cuts the sequence from 811KB to 235KB. Probed rather than assumed:
+     the JPEG copies stay in the repo because a browser that cannot decode the
+     frames renders a blank hero, and that failure is silent. */
+  const SUPPORTS_WEBP = (() => {
+    try {
+      return document.createElement("canvas")
+        .toDataURL("image/webp")
+        .startsWith("data:image/webp");
+    } catch {
+      return false;
+    }
+  })();
+  const FRAME_EXT = SUPPORTS_WEBP ? "webp" : "jpg";
+
   if (HAS_HERO) {
     for (let i = 1; i <= FRAME_COUNT; i++) {
       const img = new Image();
-      img.src = `assets/flowshirt/frame-${String(i).padStart(2, "0")}.jpg`;
+      img.src = `assets/flowshirt/frame-${String(i).padStart(2, "0")}.${FRAME_EXT}`;
       frames.push(img);
     }
   }

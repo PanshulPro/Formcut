@@ -14,7 +14,10 @@
    the visitor prefers reduced motion.
    ========================================================================== */
 
-import { createElasticMesh } from "./elastic-mesh.js";
+/* Versioned import. /js/* is served `immutable` for a year, so a module
+   fetched without a cache-busting query would never pick up a redeploy.
+   Bump this alongside the ?v= on the <script> tag in the HTML. */
+import { createElasticMesh } from "./elastic-mesh.js?v=5";
 
 const host = document.getElementById("heroMesh");
 const canvas2d = document.getElementById("heroCanvas");

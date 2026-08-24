@@ -5,8 +5,9 @@
   # No inline <script> anywhere in this project, so script-src can stay strict.
   # 'unsafe-inline' IS needed for style-src: 44 inline style="--stagger:N"
   # attributes drive the reveal stagger, and CSP treats those as inline styles.
-  # cdn.jsdelivr.net serves ogl (WebGL lib) as an ESM import in hero-mesh.js.
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; frame-src https://www.openstreetmap.org; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests
+  # ogl is vendored at js/vendor/ogl.min.js, so no third-party script origin
+  # is needed at all and script-src stays 'self' only.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; frame-src https://www.openstreetmap.org; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), interest-cohort=()
