@@ -1,0 +1,12 @@
+# Workers Static Assets serves the deploy directory verbatim, and this project
+# deploys from the repo root. Without this file the whole .git directory ships
+# as public static assets - /.git/config and /.git/objects/* returned HTTP 200
+# on the first deploy, which lets anyone reconstruct the full repository.
+#
+# Do not remove. Anything listed here is excluded from the upload.
+.git/**
+.wrangler/**
+.gitignore
+.gitattributes
+.assetsignore
+wrangler.jsonc

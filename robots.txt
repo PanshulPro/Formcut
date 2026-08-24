@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://formcut.pages.dev/sitemap.xml
+Sitemap: https://formcut.panshulgaur1.workers.dev/sitemap.xml
