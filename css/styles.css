@@ -1875,6 +1875,20 @@ section { padding-block: var(--section-y); }
   .quote-grid { grid-template-columns: 1fr; }
 }
 
+/* Failure banner. Same footprint as .form-success but reads as a problem,
+   not a warning-coloured success. */
+.form-fail {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 60, 40, 0.42);
+  background: rgba(200, 60, 40, 0.09);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.form-fail strong { display: block; margin-bottom: 3px; }
+.form-fail[hidden] { display: none; }
+
 /* Legal pages - long-form reading, so the measure is capped and the rhythm
    is looser than the marketing sections. */
 .legal-body {

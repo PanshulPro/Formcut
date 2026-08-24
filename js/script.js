@@ -734,6 +734,7 @@
 
   const form = document.getElementById("quoteForm");
   const formSuccess = document.getElementById("formSuccess");
+  const formFail = document.getElementById("formFail");
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const PHONE_RE = /^[0-9\s-]{7,15}$/;
 
@@ -742,6 +743,7 @@
   form?.addEventListener("submit", (e) => {
     e.preventDefault();
     formSuccess?.classList.remove("is-visible");
+    if (formFail) formFail.hidden = true;
 
     const name = document.getElementById("fName");
     const email = document.getElementById("fEmail");
@@ -795,16 +797,19 @@
       .filter(Boolean)
       .join("\n");
 
-    /* Post to the Worker. mailto is kept as the fallback path: if the API is
-       unreachable, or the secrets are not set yet, the enquiry still reaches
-       a human instead of silently evaporating. */
+    /* No mailto fallback. Handing the visitor off to their default mail
+       client sends them somewhere unpredictable - on Windows that is
+       whatever is registered, commonly Outlook rather than the webmail they
+       actually use - and it addressed a placeholder domain that does not
+       resolve, so the message bounced. A failure the visitor can see and
+       act on beats a silent handoff that loses the enquiry. */
     const submitBtn = form.querySelector('[type="submit"]');
     const restore = submitBtn ? submitBtn.textContent : null;
-    const mailtoFallback = () => {
-      window.location.href = `mailto:hello@formcut.studio?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(body)}`;
-      formSuccess?.classList.add("is-visible");
+    const showFailure = () => {
+      if (formFail) {
+        formFail.hidden = false;
+        formFail.scrollIntoView({ block: "center", behavior: REDUCED ? "auto" : "smooth" });
+      }
     };
 
     if (submitBtn) {
@@ -853,9 +858,9 @@
           form.querySelector(".has-error input, .has-error select")?.focus();
           return;
         }
-        mailtoFallback();
+        showFailure();
       })
-      .catch(mailtoFallback)
+      .catch(showFailure)
       .finally(() => {
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -869,22 +874,46 @@
     field?.addEventListener("input", () => setError(field, false));
   });
 
-  /* Newsletter - same mailto handoff, no backend to fake */
+  /* Newsletter. Posts to the same endpoint rather than opening a mail client:
+     mailto hands the visitor to whatever Windows has registered - often
+     Outlook rather than the webmail they use - addressed to a domain that
+     does not resolve, so the message bounces and the signup is lost. */
   const nlForm = document.getElementById("newsletterForm");
   const nlNote = document.getElementById("nlNote");
   nlForm?.addEventListener("submit", (e) => {
     e.preventDefault();
     const input = document.getElementById("nlEmail");
-    if (!EMAIL_RE.test(input.value.trim())) {
+    const value = input.value.trim();
+    if (!EMAIL_RE.test(value)) {
       if (nlNote) nlNote.textContent = "Enter a valid email address.";
       input.focus();
       return;
     }
-    window.location.href = `mailto:hello@formcut.studio?subject=${encodeURIComponent(
-      "Trade updates signup"
-    )}&body=${encodeURIComponent(`Please add ${input.value.trim()} to trade updates.`)}`;
-    if (nlNote) nlNote.textContent = "Thanks. Your email app will open to confirm.";
-    input.value = "";
+    if (nlNote) nlNote.textContent = "Adding you...";
+    fetch("/api/enquiry", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Trade updates subscriber",
+        company: "Trade updates signup",
+        email: value,
+        phone: "0000000000", // required by the shared validator; not collected here
+        message: "Signed up for trade updates from the site footer.",
+        website: "",
+        elapsed: 9999,
+      }),
+    })
+      .then((res) => {
+        if (nlNote) {
+          nlNote.textContent = res.ok
+            ? "Thanks. You are on the list."
+            : "Could not add you right now. Please try again later.";
+        }
+        if (res.ok) input.value = "";
+      })
+      .catch(() => {
+        if (nlNote) nlNote.textContent = "Could not add you right now. Please try again later.";
+      });
   });
 
   /* ------------------------------------------------------------------------
