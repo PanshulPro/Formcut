@@ -124,9 +124,16 @@ const rateLimited = (env, ip) =>
 /* Hashed, not stored raw: the limiter should not become a second copy of
    every email address that ever touched the form. */
 async function emailLimited(env, email) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email));
-  const hash = [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return bump(env, `el:${hash.slice(0, 32)}`, EMAIL_LIMIT.max, EMAIL_LIMIT.windowSeconds);
+  /* Fails open, like bump() does. Every other limb of the limiter tolerates
+     its own failure; without this guard a throw here would 500 an enquiry
+     that is otherwise completely valid. */
+  try {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email));
+    const hash = [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return bump(env, `el:${hash.slice(0, 32)}`, EMAIL_LIMIT.max, EMAIL_LIMIT.windowSeconds);
+  } catch {
+    return false;
+  }
 }
 
 /* Cloudflare Turnstile. Dormant until TURNSTILE_SECRET is set, so the site
@@ -201,7 +208,8 @@ async function sendEmail(env, { to, subject, html, replyTo }) {
 }
 
 async function sendTelegram(env, text) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return { ok: false, skipped: true };
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID)
+    return { ok: false, skipped: "not configured" };
   const res = await fetch(
     `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,
     {
@@ -216,7 +224,7 @@ async function sendTelegram(env, text) {
       signal: withTimeout(8000),
     }
   );
-  return { ok: res.ok };
+  return { ok: res.ok, status: res.status, body: res.ok ? null : await res.text() };
 }
 
 const row = (k, v) =>
@@ -477,7 +485,8 @@ export default {
           if (r.status === "rejected") return `${label}: ${String(r.reason).slice(0, 120)}`;
           const v = r.value;
           if (!v || v.ok) return null;
-          if (v.skipped) return `${label}: ${v.skipped}`;
+          // not-configured is a deliberate state, not a delivery failure
+          if (v.skipped) return null;
           return `${label}: HTTP ${v.status} ${String(v.body || "").slice(0, 200)}`;
         };
         const errors = [why("owner", 0), why("customer", 1), why("telegram", 2)]

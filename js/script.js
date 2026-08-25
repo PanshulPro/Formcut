@@ -1009,11 +1009,22 @@
     let activeDetail = -1;
     let unpinned = null; // null = undecided, so the first pass always applies
 
+    /* Resolved once and re-checked only when the viewport changes.
+       getComputedStyle forces a style recalculation, and querySelector walks
+       the DOM - doing both inside a scroll job ran them on every frame, for a
+       value that can only change at a breakpoint. */
+    const detailSticky = detailSection.querySelector(".detail-sticky");
+    let stickyKnown = null;
+    const readSticky = () => {
+      stickyKnown = getComputedStyle(detailSticky).position === "sticky";
+    };
+    readSticky();
+    window.addEventListener("resize", readSticky, { passive: true });
+    window.addEventListener("load", readSticky);
+
     registerScroll(() => {
-      /* Below 900px the section is unpinned (see the media query), so there
-         is no runway to read progress from and every item stays open. */
-      const isUnpinned =
-        getComputedStyle(detailSection.querySelector(".detail-sticky")).position !== "sticky";
+      // below 900px the section is unpinned, so there is no runway to read
+      const isUnpinned = !stickyKnown;
 
       if (isUnpinned) {
         if (unpinned !== true) {

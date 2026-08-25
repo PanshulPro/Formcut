@@ -17,7 +17,9 @@
     // Static assets are served first; anything not matching a file falls
     // through to the Worker, which only answers /api/*.
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*"],
+    // Unknown paths returned the platform default, which is a blank page.
+    "not_found_handling": "404-page"
   },
 
   "d1_databases": [
