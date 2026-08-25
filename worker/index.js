@@ -413,7 +413,14 @@ export default {
        failed submission when the enquiry is already safely stored. */
     ctx.waitUntil(
       (async () => {
-        const owner = env.OWNER_EMAIL;
+        /* Falls back to the public business address. OWNER_EMAIL set as a
+           dashboard Text variable does not survive a deploy - wrangler
+           replaces vars with whatever the config declares, and the config
+           declares none - so it silently emptied and owner notifications
+           stopped with no error recorded. Set it as a Secret instead;
+           secrets are preserved. This default means a wipe degrades to the
+           right inbox rather than to silence. */
+        const owner = env.OWNER_EMAIL || "sales.dsant@gmail.com";
         const results = await Promise.allSettled([
           owner &&
             sendEmail(env, {
