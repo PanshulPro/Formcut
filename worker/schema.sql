@@ -1,4 +1,4 @@
--- FORMCUT enquiry store.
+-- D. SANT enquiry store.
 -- Apply with:
 --   npx wrangler d1 execute formcut-enquiries --remote --file=worker/schema.sql
 

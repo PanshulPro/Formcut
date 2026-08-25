@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FORMCUT - interaction layer
+   D. SANT - interaction layer
    ---------------------------------------------------------------------------
    Architecture:
      - ONE scroll engine. Every scroll-linked effect registers a callback;
@@ -670,7 +670,7 @@
     themeToggle?.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
   }
 
-  const savedTheme = localStorage.getItem("formcut-theme");
+  const savedTheme = localStorage.getItem("dsant-theme");
   if (savedTheme) root.setAttribute("data-theme", savedTheme);
   paintThemeToggle();
 
@@ -680,7 +680,7 @@
       (!root.hasAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
     const next = dark ? "light" : "dark";
     root.setAttribute("data-theme", next);
-    localStorage.setItem("formcut-theme", next);
+    localStorage.setItem("dsant-theme", next);
     paintThemeToggle();
   });
 
@@ -1040,8 +1040,8 @@
      "manual" for the pinned hero, so the browser will not do this itself.
      ------------------------------------------------------------------------ */
   (function returnToPosition() {
-    const KEY_Y = "formcut:lastY";
-    const KEY_RESTORE = "formcut:restore";
+    const KEY_Y = "dsant:lastY";
+    const KEY_RESTORE = "dsant:restore";
 
     // private-mode Safari throws on sessionStorage access, so probe once
     let store = null;
@@ -1107,7 +1107,7 @@
     const veil = document.createElement("div");
     veil.className = "page-veil";
     veil.setAttribute("aria-hidden", "true");
-    veil.innerHTML = '<span class="page-veil-mark">FORMCUT</span>';
+    veil.innerHTML = '<span class="page-veil-mark">D. Sant</span>';
     document.body.appendChild(veil);
 
     // wipe away on arrival

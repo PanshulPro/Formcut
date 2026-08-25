@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FORMCUT - Design System
+   D. SANT - Design System
    ---------------------------------------------------------------------------
    Reading: premium B2B sportswear-manufacturer site for wholesale buyers,
    distributors and private-label brands. Restrained technical language:
@@ -1953,7 +1953,7 @@ section { padding-block: var(--section-y); }
 }
 
 /* Build credit. Sits under the copyright line as a separate row so the
-   fiction (FORMCUT) and the author (a real person) never read as one string. */
+   fiction (D. Sant) and the author (a real person) never read as one string. */
 .footer-credit {
   display: block;
   margin-top: 6px;
@@ -2280,7 +2280,10 @@ body.is-leaving .page-veil-mark { opacity: 0.9; }
   .stat:nth-child(2n) { border-right: none; }
   .stat:nth-child(3) { padding-left: 0; }
   .footer-top { grid-template-columns: 1fr 1fr; }
-  .process { height: 460vh; }
+  /* Shortened for touch. 460vh assumed a wheel making many small
+     increments; a flick crosses that in one gesture, so most of it was
+     distance with nothing new to see. */
+  .process { height: 300vh; }
   .process-grid { grid-template-columns: 1fr; gap: clamp(16px, 3vh, 28px); }
   .process-visual { aspect-ratio: 16 / 10; max-height: 26vh; }
   .process-step { padding-block: clamp(8px, 1.4vh, 14px); }
@@ -2297,7 +2300,7 @@ body.is-leaving .page-veil-mark { opacity: 0.9; }
   #headerCta { display: none; }
 
   /* copy stays ON the photo, centred, over a cover-cropped frame */
-  .hero { height: 340vh; }
+  .hero { height: 240vh; } /* shortened for touch - see .process above */
   .hero-copy {
     margin-inline: auto;
     max-width: none;

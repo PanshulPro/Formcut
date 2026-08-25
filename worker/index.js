@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FORMCUT enquiry endpoint
+   D. SANT enquiry endpoint
    ---------------------------------------------------------------------------
    POST /api/enquiry
 
@@ -189,7 +189,7 @@ async function sendEmail(env, { to, subject, html, replyTo }) {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      from: env.FROM_EMAIL || "FORMCUT <onboarding@resend.dev>",
+      from: env.FROM_EMAIL || "D. SANT <onboarding@resend.dev>",
       to: [to],
       subject: noCRLF(subject),
       html,
@@ -253,7 +253,7 @@ function customerEmailHtml(d) {
     Nothing is confirmed yet — this only acknowledges that your enquiry reached us.
     If anything above is wrong, just reply to this email.
   </p>
-  <p style="margin-top:24px;font:600 12px/1 ui-monospace,monospace;letter-spacing:.16em;color:#b8492a">FORMCUT</p>
+  <p style="margin-top:24px;font:600 12px/1 ui-monospace,monospace;letter-spacing:.16em;color:#b8492a">D. Sant</p>
 </div>`;
 }
 
@@ -367,7 +367,7 @@ export default {
             }),
           sendEmail(env, {
             to: data.email,
-            subject: "We have your enquiry — FORMCUT",
+            subject: "We have your enquiry — D. Sant",
             html: customerEmailHtml(data),
           }),
           sendTelegram(
