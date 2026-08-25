@@ -855,8 +855,23 @@ section { padding-block: var(--section-y); }
   position: absolute;
   inset: 0;
   display: none;
-  touch-action: none;
+  /* pan-y, NOT none. `none` suppresses every default touch behaviour on the
+     element, and this one covers the whole hero - so a touch starting
+     anywhere on the first screen could not scroll the page. On a phone that
+     made the site impossible to get past. */
+  touch-action: pan-y;
 }
+
+/* The sheet is driven by hover, which does not exist on a touch device, so
+   the interaction has nothing to offer there and only competes with the
+   scroll. Let touches pass straight through to the page instead. */
+@media (hover: none), (pointer: coarse) {
+  .hero-mesh {
+    pointer-events: none;
+    touch-action: auto;
+  }
+}
+
 .hero-mesh.is-live { display: block; }
 .hero-mesh canvas {
   display: block;
