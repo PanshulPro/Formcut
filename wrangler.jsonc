@@ -3,7 +3,7 @@
   // every deploy, which is how the whole repo root (including .git) ended up
   // being served as static assets on the first deploy.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "formcut",
+  "name": "dsant",
   "main": "worker/index.js",
   "compatibility_date": "2026-08-20",
   "observability": { "enabled": true },
@@ -19,8 +19,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "formcut-enquiries",
-      "database_id": "15875185-e8e6-4d55-beb5-70ed8fe037b5"
+      "database_name": "dsant-enquiries",
+      "database_id": "c5e4ba9e-9d0f-4e4a-bb40-dd50a0a34951"
     }
   ],
 

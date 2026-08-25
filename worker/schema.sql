@@ -1,6 +1,6 @@
 -- D. SANT enquiry store.
 -- Apply with:
---   npx wrangler d1 execute formcut-enquiries --remote --file=worker/schema.sql
+--   npx wrangler d1 execute dsant-enquiries --remote --file=worker/schema.sql
 
 CREATE TABLE IF NOT EXISTS enquiries (
   id           TEXT PRIMARY KEY,           -- uuid, generated server-side
