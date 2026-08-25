@@ -17,7 +17,7 @@
 /* Versioned import. /js/* is served `immutable` for a year, so a module
    fetched without a cache-busting query would never pick up a redeploy.
    Bump this alongside the ?v= on the <script> tag in the HTML. */
-import { createElasticMesh } from "./elastic-mesh.js?v=5";
+import { createElasticMesh } from "./elastic-mesh.js?v=6";
 
 const host = document.getElementById("heroMesh");
 const canvas2d = document.getElementById("heroCanvas");
@@ -28,6 +28,34 @@ if (host && canvas2d) {
   const probe = document.createElement("canvas");
   const hasWebGL = !!(probe.getContext("webgl") || probe.getContext("experimental-webgl"));
 
+  /* The sheet is driven by hover, which a touch device does not have, and the
+     CSS makes it pointer-transparent there so it can never eat a scroll. That
+     leaves it rendering a grid it will never deform - so on mobile it drops to
+     a coarse, lightly shaded sheet that costs almost nothing on the GPU, and
+     keeps the full physical treatment for desktop. */
+  const COARSE = window.matchMedia("(pointer: coarse), (hover: none)").matches;
+
+  const TUNING = COARSE
+    ? {
+        // barely there: a flat sheet with a hint of light across it
+        shading: 0.18,
+        resolution: 14,
+        pull: 0.12,
+        grabRadius: 0.3,
+        wobble: 1.2,
+      }
+    : {
+        /* Tuned for physical realism rather than a visible "effect": strong
+           enough shading that the deformation reads as light falling across a
+           real surface, and a denser grid so the fold curves smoothly instead
+           of faceting. */
+        shading: 0.72,
+        resolution: 52,
+        pull: 0.58,
+        grabRadius: 0.58,
+        wobble: 4.2,
+      };
+
   if (hasWebGL && !reduceMotion) {
     const mesh = createElasticMesh(host, {
       // full-bleed: no perspective tilt, no rounded corners, sheet pushed
@@ -36,20 +64,13 @@ if (host && canvas2d) {
       tilt: 0,
       borderRadius: 0,
       showGrid: false,
-      /* Tuned for physical realism rather than a visible "effect": strong
-         enough shading that the deformation reads as light falling across a
-         real surface, and a denser grid so the fold curves smoothly instead
-         of faceting. Softer spring + heavier damping give it the weight of
-         cloth rather than the snap of rubber. */
-      shading: 0.72,
+      // Softer spring + heavier damping give it the weight of cloth rather
+      // than the snap of rubber. Shared by both tiers.
       stiffness: 0.036,
       damping: 0.135,
-      grabRadius: 0.58,
-      pull: 0.58,
-      wobble: 4.2,
-      resolution: 52,
       interaction: "hover",
       highlight: "#f7f7f6",
+      ...TUNING,
     });
 
     document.documentElement.dataset.heroMesh = "on";
