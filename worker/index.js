@@ -220,40 +220,97 @@ async function sendTelegram(env, text) {
 }
 
 const row = (k, v) =>
-  v ? `<tr><td style="padding:6px 16px 6px 0;color:#6b7075;white-space:nowrap">${esc(k)}</td>
-        <td style="padding:6px 0;color:#17191c"><strong>${esc(v)}</strong></td></tr>` : "";
+  v ? `<tr><td style="padding:7px 18px 7px 0;color:#6b7075;white-space:nowrap;font-size:13px">${esc(k)}</td>
+        <td style="padding:7px 0;color:#17191c;font-size:14px"><strong>${esc(v)}</strong></td></tr>` : "";
 
-function ownerEmailHtml(d) {
-  return `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:620px">
-  <p style="font:600 12px/1 ui-monospace,monospace;letter-spacing:.16em;color:#b8492a;text-transform:uppercase">New trade enquiry</p>
-  <h2 style="margin:8px 0 20px;font-size:22px;color:#17191c">${esc(d.company)}</h2>
-  <table style="border-collapse:collapse;font-size:14px">
-    ${row("Contact", d.name)}${row("Buyer type", d.buyerType)}${row("GSTIN", d.gstin)}
-    ${row("Email", d.email)}${row("Phone", d.phone)}
-    ${row("Product", d.product)}${row("Quantity", d.quantity ? d.quantity + " pcs" : "")}
+/* Digits only, so the owner can tap straight through to WhatsApp or a dial
+   from the notification. "+91 98765 43210" is not a valid wa.me path. */
+const digits = (s) => String(s || "").replace(/[^0-9]/g, "");
+
+/* IST. The Worker runs in UTC and a timestamp the reader has to mentally
+   convert is worse than no timestamp. */
+const istStamp = (iso) =>
+  new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata", day: "numeric", month: "short",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+
+/* The commercial summary - what the enquiry is actually worth. Shown large
+   because it is the one line that decides whether to reply now or later. */
+const headline = (d) => {
+  const parts = [];
+  if (d.quantity) parts.push(`${d.quantity.toLocaleString("en-IN")} pcs`);
+  if (d.product) parts.push(d.product);
+  return parts.join(" · ") || "Quantity and product not specified";
+};
+
+const action = (href, label) =>
+  `<a href="${href}" style="display:inline-block;padding:10px 16px;margin:0 8px 8px 0;
+     background:#17191c;color:#f7f7f6;text-decoration:none;border-radius:6px;
+     font-size:13px;font-weight:600">${esc(label)}</a>`;
+
+function ownerEmailHtml(d, createdAt) {
+  const wa = digits(d.phone);
+  return `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;color:#17191c">
+  <p style="margin:0;font:600 11px/1 ui-monospace,monospace;letter-spacing:.18em;color:#b8492a;text-transform:uppercase">New trade enquiry</p>
+
+  <h2 style="margin:10px 0 2px;font-size:24px;line-height:1.2">${esc(d.company)}</h2>
+  <p style="margin:0 0 4px;font-size:17px;color:#3f4347">${esc(headline(d))}</p>
+  <p style="margin:0 0 22px;font-size:12px;color:#8a8f94">${esc(istStamp(createdAt))} IST${d.country ? " · " + esc(d.country) : ""}</p>
+
+  <div style="margin-bottom:22px">
+    ${wa ? action("https://wa.me/" + wa, "WhatsApp " + d.name.split(" ")[0]) : ""}
+    ${wa ? action("tel:" + d.phone.replace(/\s/g, ""), "Call") : ""}
+    ${action("mailto:" + d.email, "Email")}
+  </div>
+
+  <table style="border-collapse:collapse;width:100%;border-top:1px solid #e4e4e2">
+    ${row("Contact", d.name)}
+    ${row("Phone", d.phone)}
+    ${row("Email", d.email)}
+    ${row("Buyer type", d.buyerType)}
+    ${row("GSTIN", d.gstin)}
     ${row("Branding", d.branding)}
   </table>
-  ${d.message ? `<p style="margin:20px 0 6px;color:#6b7075;font-size:13px">Details</p>
-    <div style="white-space:pre-wrap;padding:14px;background:#f7f7f6;border-radius:6px;font-size:14px;color:#17191c">${esc(d.message)}</div>` : ""}
-  <p style="margin-top:22px;font-size:13px;color:#6b7075">Reply directly to this email to reach ${esc(d.name)}.</p>
+
+  ${d.message ? `<p style="margin:22px 0 6px;color:#6b7075;font-size:12px;text-transform:uppercase;letter-spacing:.1em">What they said</p>
+    <div style="white-space:pre-wrap;padding:14px 16px;background:#f7f7f6;border-left:3px solid #b8492a;
+      border-radius:0 6px 6px 0;font-size:14px;line-height:1.6">${esc(d.message)}</div>` : ""}
+
+  <p style="margin-top:26px;padding-top:16px;border-top:1px solid #e4e4e2;font-size:12px;color:#8a8f94">
+    Replying to this email goes straight to ${esc(d.name)}.
+  </p>
 </div>`;
 }
 
 function customerEmailHtml(d) {
-  return `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:620px">
-  <h2 style="margin:0 0 14px;font-size:22px;color:#17191c">Thanks — we have your enquiry.</h2>
-  <p style="font-size:15px;line-height:1.6;color:#3f4347">
-    Hi ${esc(d.name)}, we have received your request${d.product ? ` for <strong>${esc(d.product)}</strong>` : ""}
-    and will come back within one business day with trade pricing, fabric options and a realistic lead time.
+  return `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:600px;color:#17191c">
+  <p style="margin:0;font:600 11px/1 ui-monospace,monospace;letter-spacing:.18em;color:#b8492a;text-transform:uppercase">D. Sant</p>
+  <h2 style="margin:12px 0 14px;font-size:23px;line-height:1.25">Thanks — we have your enquiry.</h2>
+
+  <p style="font-size:15px;line-height:1.65;color:#3f4347;margin:0 0 18px">
+    Hi ${esc(d.name)}, we have your request${d.product ? ` for <strong>${esc(d.product)}</strong>` : ""}
+    and will come back <strong>within one business day</strong> with trade pricing, fabric options
+    and a realistic lead time.
   </p>
-  <table style="border-collapse:collapse;font-size:14px;margin:18px 0">
-    ${row("Company", d.company)}${row("Quantity", d.quantity ? d.quantity + " pcs" : "")}${row("Branding", d.branding)}
+
+  <table style="border-collapse:collapse;width:100%;border-top:1px solid #e4e4e2">
+    ${row("Company", d.company)}
+    ${row("Quantity", d.quantity ? d.quantity.toLocaleString("en-IN") + " pcs" : "")}
+    ${row("Branding", d.branding)}
   </table>
-  <p style="font-size:13px;color:#6b7075;line-height:1.6">
+
+  <p style="font-size:13px;color:#6b7075;line-height:1.65;margin:20px 0">
     Nothing is confirmed yet — this only acknowledges that your enquiry reached us.
     If anything above is wrong, just reply to this email.
   </p>
-  <p style="margin-top:24px;font:600 12px/1 ui-monospace,monospace;letter-spacing:.16em;color:#b8492a">D. Sant</p>
+
+  <p style="font-size:13px;line-height:1.8;color:#6b7075;margin:0;padding-top:16px;border-top:1px solid #e4e4e2">
+    <strong style="color:#17191c">D. Sant</strong> · Unisex sportswear manufacturer<br>
+    1450, Ground Floor Hall 1, Pooth Kalan, Rohini, Delhi 110086<br>
+    <a href="tel:+917292002551" style="color:#b8492a">+91 72920 02551</a> ·
+    <a href="mailto:sales.dsant@gmail.com" style="color:#b8492a">sales.dsant@gmail.com</a>
+  </p>
 </div>`;
 }
 
