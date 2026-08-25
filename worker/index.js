@@ -227,6 +227,12 @@ const row = (k, v) =>
    from the notification. "+91 98765 43210" is not a valid wa.me path. */
 const digits = (s) => String(s || "").replace(/[^0-9]/g, "");
 
+/* A UUID is unusable over the phone. This takes the first 6 hex characters
+   and uppercases them - short enough to read aloud, and still unique enough
+   at this volume to find the row. Derived, not stored, so it never has to
+   be kept in sync with the id. */
+const ref = (id) => "DS-" + String(id).replace(/-/g, "").slice(0, 6).toUpperCase();
+
 /* IST. The Worker runs in UTC and a timestamp the reader has to mentally
    convert is worse than no timestamp. */
 const istStamp = (iso) =>
@@ -256,7 +262,7 @@ function ownerEmailHtml(d, createdAt) {
 
   <h2 style="margin:10px 0 2px;font-size:24px;line-height:1.2">${esc(d.company)}</h2>
   <p style="margin:0 0 4px;font-size:17px;color:#3f4347">${esc(headline(d))}</p>
-  <p style="margin:0 0 22px;font-size:12px;color:#8a8f94">${esc(istStamp(createdAt))} IST${d.country ? " · " + esc(d.country) : ""}</p>
+  <p style="margin:0 0 22px;font-size:12px;color:#8a8f94">${esc(istStamp(createdAt))} IST${d.country ? " · " + esc(d.country) : ""} · Ref ${esc(d.ref)}</p>
 
   <div style="margin-bottom:22px">
     ${wa ? action("https://wa.me/" + wa, "WhatsApp " + d.name.split(" ")[0]) : ""}
@@ -295,6 +301,7 @@ function customerEmailHtml(d) {
   </p>
 
   <table style="border-collapse:collapse;width:100%;border-top:1px solid #e4e4e2">
+    ${row("Reference", d.ref)}
     ${row("Company", d.company)}
     ${row("Quantity", d.quantity ? d.quantity.toLocaleString("en-IN") + " pcs" : "")}
     ${row("Branding", d.branding)}
@@ -370,7 +377,10 @@ export default {
     const trapped =
       str(raw.website, 200).length > 0 ||
       (Number.isFinite(+raw.elapsed) && +raw.elapsed < 2000);
-    if (trapped) return json(200, { ok: true, id: crypto.randomUUID() });
+    if (trapped) {
+      const fakeId = crypto.randomUUID();
+      return json(200, { ok: true, id: fakeId, ref: ref(fakeId) });
+    }
 
     if (!(await turnstileOk(env, raw.turnstileToken, ip)))
       return json(403, { ok: false, error: "Could not verify that you are human. Please reload and try again." });
@@ -384,6 +394,7 @@ export default {
       return json(429, { ok: false, error: "This email address has already sent several enquiries. Please email us directly." });
 
     const id = crypto.randomUUID();
+    data.ref = ref(id);
     const createdAt = new Date().toISOString();
     const country = request.cf?.country || null;
 
@@ -429,14 +440,14 @@ export default {
               /* Leads with the qualifying numbers so the inbox list is
                  triageable without opening anything. */
               subject:
-                `Enquiry: ${data.company}` +
+                `[${data.ref}] ${data.company}` +
                 (data.quantity ? ` — ${data.quantity.toLocaleString("en-IN")} pcs` : "") +
                 (data.product ? ` ${data.product}` : ""),
               html: ownerEmailHtml(data, createdAt),
             }),
           sendEmail(env, {
             to: data.email,
-            subject: "We have your enquiry — D. Sant",
+            subject: `We have your enquiry (${data.ref}) — D. Sant`,
             html: customerEmailHtml(data),
           }),
           sendTelegram(
@@ -485,6 +496,6 @@ export default {
       })()
     );
 
-    return json(200, { ok: true, id });
+    return json(200, { ok: true, id, ref: data.ref });
   },
 };

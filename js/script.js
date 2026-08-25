@@ -842,6 +842,11 @@
     })
       .then(async (res) => {
         if (res.ok) {
+          /* Surface the reference. Without it neither side has anything to
+             quote when following up on a specific enquiry. */
+          const { ref } = await res.json().catch(() => ({}));
+          const refEl = document.getElementById("formRef");
+          if (refEl) refEl.textContent = ref ? ` Your reference is ${ref}.` : "";
           form.reset();
           formSuccess?.classList.add("is-visible");
           formSuccess?.scrollIntoView({ block: "center", behavior: REDUCED ? "auto" : "smooth" });
