@@ -1952,6 +1952,17 @@ section { padding-block: var(--section-y); }
   opacity: 0.7;
 }
 
+/* Field hint. Always visible, unlike .error-msg which only shows on failure -
+   so it must not use the error colour or it reads as a problem. */
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-3, var(--ink-2, inherit));
+  opacity: 0.7;
+}
+
 /* Build credit. Sits under the copyright line as a separate row so the
    fiction (D. Sant) and the author (a real person) never read as one string. */
 .footer-credit {
