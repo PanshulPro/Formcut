@@ -3,7 +3,11 @@
   // every deploy, which is how the whole repo root (including .git) ended up
   // being served as static assets on the first deploy.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "dsant",
+  // Must stay "formcut": Workers Builds is bound to the existing service of
+  // that name and ignores this field, so changing it here does NOT rename
+  // anything - it just makes the config disagree with what is deployed.
+  // Renaming means creating a new Workers project in the dashboard.
+  "name": "formcut",
   "main": "worker/index.js",
   "compatibility_date": "2026-08-20",
   "observability": { "enabled": true },
