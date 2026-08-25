@@ -419,8 +419,13 @@ export default {
             sendEmail(env, {
               to: owner,
               replyTo: data.email,
-              subject: `Trade enquiry — ${data.company}${data.product ? " — " + data.product : ""}`,
-              html: ownerEmailHtml(data),
+              /* Leads with the qualifying numbers so the inbox list is
+                 triageable without opening anything. */
+              subject:
+                `Enquiry: ${data.company}` +
+                (data.quantity ? ` — ${data.quantity.toLocaleString("en-IN")} pcs` : "") +
+                (data.product ? ` ${data.product}` : ""),
+              html: ownerEmailHtml(data, createdAt),
             }),
           sendEmail(env, {
             to: data.email,
@@ -429,13 +434,16 @@ export default {
           }),
           sendTelegram(
             env,
-            `<b>New trade enquiry</b>\n` +
-              `${esc(data.company)}\n` +
-              `${esc(data.name)} · ${esc(data.phone)}\n` +
+            `<b>${esc(data.company)}</b>\n` +
+              `${esc(headline(data))}\n\n` +
+              `${esc(data.name)}${data.buyerType ? " · " + esc(data.buyerType) : ""}\n` +
+              `${esc(data.phone)}\n` +
               `${esc(data.email)}\n` +
-              (data.product ? `${esc(data.product)}\n` : "") +
-              (data.quantity ? `${data.quantity} pcs\n` : "") +
-              (data.buyerType ? `${esc(data.buyerType)}` : "")
+              (data.branding ? `Branding: ${esc(data.branding)}\n` : "") +
+              (data.message ? `\n<i>${esc(data.message.slice(0, 220))}</i>\n` : "") +
+              (digits(data.phone)
+                ? `\n<a href="https://wa.me/${digits(data.phone)}">Reply on WhatsApp</a>`
+                : "")
           ),
         ]);
 
